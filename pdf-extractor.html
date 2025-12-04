@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF画像・テキスト抽出ツール</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 50px;
+            text-align: center;
+            background: #f8f9ff;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 30px;
+        }
+        
+        .upload-area:hover {
+            background: #f0f2ff;
+            border-color: #764ba2;
+        }
+        
+        .upload-area.drag-over {
+            background: #e8ebff;
+            border-color: #764ba2;
+            transform: scale(1.02);
+        }
+        
+        .upload-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .options {
+            background: #f8f9ff;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .option-group {
+            margin-bottom: 20px;
+        }
+        
+        .option-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        .option-group label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 16px;
+            color: #333;
+        }
+        
+        .option-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        
+        .progress-container {
+            display: none;
+            margin-bottom: 30px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .progress-text {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .results {
+            display: none;
+        }
+        
+        .file-results {
+            background: #f8f9ff;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .file-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .result-section {
+            margin-bottom: 20px;
+        }
+        
+        .result-section h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .image-item {
+            background: white;
+            padding: 10px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .image-item img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .image-info {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .download-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .download-btn:hover {
+            background: #764ba2;
+        }
+        
+        .text-preview {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 10px;
+        }
+        
+        .download-all {
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            .upload-area {
+                padding: 30px 20px;
+            }
+            
+            .image-grid {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📄 PDF画像・テキスト抽出ツール</h1>
+        <p class="subtitle">PDFから画像を元のサイズで抽出し、テキストデータも取得できます</p>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📎</div>
+            <h2>PDFファイルをドラッグ＆ドロップ</h2>
+            <p>または</p>
+            <button class="btn" onclick="document.getElementById('fileInput').click()">ファイルを選択</button>
+            <input type="file" id="fileInput" accept=".pdf" multiple>
+            <p style="margin-top: 15px; font-size: 14px; color: #666;">複数ファイルの選択・ドロップに対応</p>
+        </div>
+        
+        <div class="options">
+            <h3 style="margin-bottom: 15px; color: #333;">抽出オプション</h3>
+            <div class="option-group">
+                <label>
+                    <input type="checkbox" id="extractImages" checked>
+                    画像を抽出（元の形式・サイズで保存）
+                </label>
+            </div>
+            <div class="option-group">
+                <label>
+                    <input type="checkbox" id="extractText" checked>
+                    テキストを抽出
+                </label>
+            </div>
+        </div>
+        
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill">0%</div>
+            </div>
+            <div class="progress-text" id="progressText">処理中...</div>
+        </div>
+        
+        <div class="results" id="results">
+            <div id="resultsContent"></div>
+            <div class="download-all">
+                <button class="btn" id="downloadAllBtn">すべてをZIPでダウンロード</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const results = document.getElementById('results');
+        const resultsContent = document.getElementById('resultsContent');
+        const downloadAllBtn = document.getElementById('downloadAllBtn');
+        
+        let allExtractedData = [];
+        
+        // ドラッグ＆ドロップ処理
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('drag-over');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+            const files = Array.from(e.dataTransfer.files).filter(file => file.type === 'application/pdf');
+            if (files.length > 0) {
+                processFiles(files);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length > 0) {
+                processFiles(files);
+            }
+        });
+        
+        async function processFiles(files) {
+            const extractImages = document.getElementById('extractImages').checked;
+            const extractText = document.getElementById('extractText').checked;
+            
+            if (!extractImages && !extractText) {
+                alert('少なくとも1つのオプションを選択してください');
+                return;
+            }
+            
+            allExtractedData = [];
+            resultsContent.innerHTML = '';
+            results.style.display = 'none';
+            progressContainer.style.display = 'block';
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const progress = Math.round(((i + 1) / files.length) * 100);
+                progressFill.style.width = progress + '%';
+                progressFill.textContent = progress + '%';
+                progressText.textContent = `${file.name} を処理中... (${i + 1}/${files.length})`;
+                
+                try {
+                    const data = await extractFromPDF(file, extractImages, extractText);
+                    allExtractedData.push(data);
+                    displayResults(data);
+                } catch (error) {
+                    console.error(`Error processing ${file.name}:`, error);
+                    alert(`${file.name}の処理中にエラーが発生しました`);
+                }
+            }
+            
+            progressContainer.style.display = 'none';
+            results.style.display = 'block';
+        }
+        
+        async function extractFromPDF(file, extractImages, extractText) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            
+            const result = {
+                fileName: file.name,
+                images: [],
+                texts: []
+            };
+            
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                
+                // 画像抽出
+                if (extractImages) {
+                    const ops = await page.getOperatorList();
+                    
+                    for (let i = 0; i < ops.fnArray.length; i++) {
+                        if (ops.fnArray[i] === pdfjsLib.OPS.paintImageXObject || 
+                            ops.fnArray[i] === pdfjsLib.OPS.paintInlineImageXObject ||
+                            ops.fnArray[i] === pdfjsLib.OPS.paintImageMaskXObject) {
+                            
+                            const imageName = ops.argsArray[i][0];
+                            
+                            try {
+                                const image = await page.objs.get(imageName);
+                                
+                                if (image && image.data) {
+                                    const canvas = document.createElement('canvas');
+                                    canvas.width = image.width;
+                                    canvas.height = image.height;
+                                    const ctx = canvas.getContext('2d');
+                                    
+                                    const imageData = ctx.createImageData(image.width, image.height);
+                                    const data = image.data;
+                                    
+                                    // RGBAに変換
+                                    if (image.kind === 1) { // Grayscale
+                                        for (let j = 0; j < data.length; j++) {
+                                            const idx = j * 4;
+                                            imageData.data[idx] = data[j];
+                                            imageData.data[idx + 1] = data[j];
+                                            imageData.data[idx + 2] = data[j];
+                                            imageData.data[idx + 3] = 255;
+                                        }
+                                    } else { // RGB or RGBA
+                                        for (let j = 0, k = 0; j < data.length; j += 3, k += 4) {
+                                            imageData.data[k] = data[j];
+                                            imageData.data[k + 1] = data[j + 1];
+                                            imageData.data[k + 2] = data[j + 2];
+                                            imageData.data[k + 3] = 255;
+                                        }
+                                    }
+                                    
+                                    ctx.putImageData(imageData, 0, 0);
+                                    
+                                    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                                    result.images.push({
+                                        page: pageNum,
+                                        width: image.width,
+                                        height: image.height,
+                                        blob: blob,
+                                        url: URL.createObjectURL(blob)
+                                    });
+                                }
+                            } catch (e) {
+                                console.log(`画像の抽出をスキップ: ${imageName}`, e);
+                            }
+                        }
+                    }
+                }
+                
+                // テキスト抽出
+                if (extractText) {
+                    const textContent = await page.getTextContent();
+                    const pageText = textContent.items.map(item => item.str).join(' ');
+                    if (pageText.trim()) {
+                        result.texts.push({
+                            page: pageNum,
+                            text: pageText
+                        });
+                    }
+                }
+            }
+            
+            return result;
+        }
+        
+        function displayResults(data) {
+            const fileDiv = document.createElement('div');
+            fileDiv.className = 'file-results';
+            
+            let html = `<div class="file-title">📄 ${data.fileName}</div>`;
+            
+            // 画像表示
+            if (data.images.length > 0) {
+                html += '<div class="result-section">';
+                html += `<h3>🖼️ 抽出された画像 (${data.images.length}枚)</h3>`;
+                html += '<div class="image-grid">';
+                
+                data.images.forEach((img, idx) => {
+                    html += `
+                        <div class="image-item">
+                            <img src="${img.url}" alt="Image ${idx + 1}">
+                            <div class="image-info">ページ ${img.page}</div>
+                            <div class="image-info">${img.width} × ${img.height}px</div>
+                            <button class="download-btn" onclick="downloadImage(${resultsContent.children.length}, ${idx})">
+                                ダウンロード
+                            </button>
+                        </div>
+                    `;
+                });
+                
+                html += '</div></div>';
+            } else if (document.getElementById('extractImages').checked) {
+                html += '<div class="result-section"><p style="color: #666;">画像が見つかりませんでした</p></div>';
+            }
+            
+            // テキスト表示
+            if (data.texts.length > 0) {
+                html += '<div class="result-section">';
+                html += `<h3>📝 抽出されたテキスト</h3>`;
+                const allText = data.texts.map(t => `[ページ ${t.page}]\n${t.text}`).join('\n\n');
+                html += `<div class="text-preview">${allText}</div>`;
+                html += `<button class="download-btn" onclick="downloadText(${resultsContent.children.length})">テキストをダウンロード</button>`;
+                html += '</div>';
+            } else if (document.getElementById('extractText').checked) {
+                html += '<div class="result-section"><p style="color: #666;">テキストが見つかりませんでした</p></div>';
+            }
+            
+            fileDiv.innerHTML = html;
+            resultsContent.appendChild(fileDiv);
+        }
+        
+        function downloadImage(fileIdx, imgIdx) {
+            const data = allExtractedData[fileIdx];
+            const img = data.images[imgIdx];
+            const link = document.createElement('a');
+            link.href = img.url;
+            link.download = `${data.fileName.replace('.pdf', '')}_page${img.page}_image${imgIdx + 1}.png`;
+            link.click();
+        }
+        
+        function downloadText(fileIdx) {
+            const data = allExtractedData[fileIdx];
+            const text = data.texts.map(t => `[ページ ${t.page}]\n${t.text}`).join('\n\n');
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `${data.fileName.replace('.pdf', '')}_text.txt`;
+            link.click();
+        }
+        
+        downloadAllBtn.addEventListener('click', async () => {
+            const zip = new JSZip();
+            
+            for (const data of allExtractedData) {
+                const folderName = data.fileName.replace('.pdf', '');
+                const folder = zip.folder(folderName);
+                
+                // 画像を追加
+                data.images.forEach((img, idx) => {
+                    folder.file(`page${img.page}_image${idx + 1}.png`, img.blob);
+                });
+                
+                // テキストを追加
+                if (data.texts.length > 0) {
+                    const text = data.texts.map(t => `[ページ ${t.page}]\n${t.text}`).join('\n\n');
+                    folder.file('extracted_text.txt', text);
+                }
+            }
+            
+            const content = await zip.generateAsync({ type: 'blob' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(content);
+            link.download = 'extracted_data.zip';
+            link.click();
+        });
+    </script>
+</body>
+</html>
